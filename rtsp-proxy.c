@@ -344,12 +344,13 @@ int search_header(char *line[],char *needle,int start)
 char *get_header(char *line[],char *needle)
 {
     int i;
-    char *p;
+    char *p, *q;
 
     i=search_header(line,needle,1);
     if (i<=0) return NULL;
 
     for(p=line[i]+strlen(needle)+1;*p && *p==' ';p++);
+	if ((q=strchr(p, ';'))) *q=0;
     return p;
 }
 
@@ -452,6 +453,7 @@ int handle_setup(char *line[],struct in_addr client_ip)
 		part=strtok(NULL,";");
 	    }
 	    free(line[i]);
+	    if ((part=strrchr(newtransport,';'))) *part=0;
 	    line[i]=strdup(newtransport);
 	    i++;
     	}
@@ -704,6 +706,7 @@ void poll_loop(int accsock)
     			    len = recv(lfd[i].fd, lfd_m[i].inbuf, MAXREQUESTLEN, 0);
                 	    if (debug>2) fprintf(stderr,"----------------------- udp bytes:%d\n",len);
 			    sendto(lfd[i].fd,lfd_m[i].inbuf,len,0,&lfd_m[i].saddr,sizeof(lfd_m[i].saddr));
+			    if (i>2) lfd_m[i-2].lastact = lfd_m[i-1].lastact = now; // Ensure that control socket keeps open while streaming
 			    continue;
 			}
 
@@ -758,7 +761,7 @@ void poll_loop(int accsock)
 	   dump_sessions();
            if (debug>2) fprintf(stderr,"dropping sessions older than %d seconds\n",idletimeout);
            for (i=1;i<nfd;) 
-                if (lfd_m[i].type==f_client && lfd_m[i].lastact+idletimeout<now) dropconnection(i,1); 
+                if (lfd_m[i].type==f_client && !lfd_m[i].deleted && lfd_m[i].lastact+idletimeout<now) dropconnection(i,1); 
                 else i++;
            lastcollect=now;
         }
