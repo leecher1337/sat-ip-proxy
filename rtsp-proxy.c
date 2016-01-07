@@ -53,7 +53,11 @@ struct SESSION {
 
 void usage()
 {
-    fprintf(stderr,"usage: %s [-d] [-i <srvip>] [-p <port>] <target>\n"
+    fprintf(stderr,"usage: %s [-d] "
+#if _BSD_SOURCE || (_XOPEN_SOURCE && _XOPEN_SOURCE < 500)
+	           "[-b] "
+#endif
+	           "[-i <srvip>] [-p <port>] <target>\n"
 	           "    srvip: ip to listen to (default 0.0.0.0 = any)\n"
 		   "    port: tcp port to listen and connect to rtsp (default 554)\n",prg);
 }
@@ -854,16 +858,21 @@ void poll_loop(int accsock)
 
 int main(int argc,char **argv)
 {
-    int ch,accsock; 
+    int ch,accsock,daemonize=0; 
 
     prg=argv[0];
-    while ((ch=getopt(argc,argv,"di:p:"))!= EOF)
+    while ((ch=getopt(argc,argv,"d"
+#if _BSD_SOURCE || (_XOPEN_SOURCE && _XOPEN_SOURCE < 500)
+"b"
+#endif
+    "i:p:"))!= EOF)
     {
         switch(ch)
         {
             case 'd':   debug++; break;
             case 'i':   srvip=optarg; break;
             case 'p':   port=optarg; break;
+            case 'b':   daemonize++; break;
             default:    usage(); exit(1); 
         }
     }
@@ -877,6 +886,9 @@ int main(int argc,char **argv)
     accsock=prepare_socket(srvip,port);
     if (accsock==-1) exit(3);
 
+#if _BSD_SOURCE || (_XOPEN_SOURCE && _XOPEN_SOURCE < 500)
+    if (daemonize) daemon(0,0);
+#endif
     poll_loop(accsock);
 
     exit(0);
